@@ -36,6 +36,10 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 # Copy application files
 COPY . .
 
+# Copy and set permissions for entrypoint
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Create required directories with proper permissions
 RUN mkdir -p /app/bootstrap/cache \
     /app/storage/framework/sessions \
@@ -62,4 +66,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8080/ || exit 1
 
 # Start FrankenPHP with Octane
-CMD ["php", "artisan", "octane:start", "--server=frankenphp", "--host=0.0.0.0", "--port=8080"]
+ENTRYPOINT ["docker-entrypoint.sh"]
