@@ -1,0 +1,53 @@
+name: delivery-dashboard
+region: nyc
+services:
+  - name: web
+    github:
+      branch: main
+      deploy_on_push: true
+    dockerfile_path: Dockerfile
+    http_port: 8080
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    instance_count: 1
+    health_check:
+      http_path: /
+      initial_delay_seconds: 120
+      period_seconds: 30
+      timeout_seconds: 10
+      success_threshold: 1
+      failure_threshold: 5
+    envs:
+      - key: APP_NAME
+        value: "Delivery Dashboard"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        value: ${APP_URL}
+      - key: APP_KEY
+        type: SECRET
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        type: SECRET
+      - key: DB_PORT
+        value: "25060"
+      - key: DB_DATABASE
+        value: defaultdb
+      - key: DB_USERNAME
+        type: SECRET
+      - key: DB_PASSWORD
+        type: SECRET
+      - key: DB_SSLMODE
+        value: require
+      - key: CACHE_DRIVER
+        value: file
+      - key: SESSION_DRIVER
+        value: file
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: LOG_LEVEL
+        value: error
