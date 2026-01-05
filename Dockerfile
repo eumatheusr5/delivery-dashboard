@@ -62,4 +62,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8080/ || exit 1
 
 # Start FrankenPHP with Octane
-CMD /bin/sh -c "php artisan migrate --force --no-interaction && php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=8080"
+CMD ["/bin/sh", "-c", "php artisan migrate --force --no-interaction && php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=8080"]
