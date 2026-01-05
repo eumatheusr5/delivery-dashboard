@@ -36,8 +36,9 @@ ENV COMPOSER_ALLOW_SUPERUSER=1
 # Copy application files
 COPY . .
 
-# Make start script executable
-RUN chmod +x start.php
+# Copy start script and make executable
+COPY start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
 
 # Create required directories with proper permissions
 RUN mkdir -p /app/bootstrap/cache \
@@ -65,4 +66,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8080/ || exit 1
 
 # Start FrankenPHP with Octane
-CMD ["php", "start.php"]
+CMD ["/bin/sh", "/usr/local/bin/start.sh"]
