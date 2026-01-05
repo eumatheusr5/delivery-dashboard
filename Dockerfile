@@ -30,33 +30,56 @@ RUN install-php-extensions \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
+# Create required directories BEFORE copying files
+RUN mkdir -p /app/bootstrap/cache \
+    && mkdir -p /app/storage/framework/sessions \
+    && mkdir -p /app/storage/framework/views \
+    && mkdir -p /app/storage/framework/cache \
+    && mkdir -p /app/storage/logs \
+    && chmod -R 777 /app/bootstrap/cache \
+    && chmod -R 777 /app/storage
+
+# Copy composer files first for caching
+COPY composer.json composer.lock* ./
+
+# Create bootstrap/cache again after copy
+RUN mkdir -p /app/bootstrap/cache && chmod -R 777 /app/bootstrap/cache
+
+# Install PHP dependencies (without running scripts)
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
+
 # Copy application files
 COPY . .
 
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
-# Install Node dependencies and build assets
-RUN npm install && npm run build
+# Create directories again after full copy
+RUN mkdir -p /app/bootstrap/cache \
+    && mkdir -p /app/storage/framework/sessions \
+    && mkdir -p /app/storage/framework/views \
+    && mkdir -p /app/storage/framework/cache \
+    && mkdir -p /app/storage/logs
 
 # Set permissions
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
 RUN chmod -R 775 /app/storage /app/bootstrap/cache
 
-# Create storage structure
-RUN mkdir -p storage/framework/{sessions,views,cache}
-RUN mkdir -p storage/logs
+# Run composer scripts now that directories exist
+RUN composer dump-autoload --optimize
 
-# Optimize Laravel
-RUN php artisan config:clear
-RUN php artisan route:clear
-RUN php artisan view:clear
+# Install Node dependencies and build assets
+RUN npm install && npm run build
+
+# Generate package manifest manually
+RUN php artisan package:discover --ansi || true
+
+# Optimize Laravel (skip config cache - will be done at runtime)
+RUN php artisan view:clear || true
+RUN php artisan route:clear || true
 
 # Expose port
 EXPOSE 8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost:8080/ || exit 1
 
 # Start FrankenPHP with Octane
