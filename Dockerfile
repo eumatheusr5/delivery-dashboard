@@ -33,17 +33,17 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set Composer to allow running as root
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# Copy composer files
-COPY composer.json composer.lock ./
+# Copy composer file
+COPY composer.json ./
 
 # Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts --no-plugins
 
-# Copy package files
-COPY package.json package-lock.json* ./
+# Copy package file
+COPY package.json ./
 
-# Install Node dependencies
-RUN npm install --legacy-peer-deps
+# Install Node dependencies  
+RUN npm install --legacy-peer-deps --no-package-lock
 
 # Copy application files
 COPY . .
