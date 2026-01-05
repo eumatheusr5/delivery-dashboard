@@ -1,5 +1,5 @@
 # Multi-stage build for Laravel with FrankenPHP
-FROM dunglas/frankenphp:latest-php8.3-alpine AS base
+FROM dunglas/frankenphp:latest-php8.3-alpine
 
 WORKDIR /app
 
@@ -30,50 +30,29 @@ RUN install-php-extensions \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Create required directories BEFORE copying files
-RUN mkdir -p /app/bootstrap/cache \
-    && mkdir -p /app/storage/framework/sessions \
-    && mkdir -p /app/storage/framework/views \
-    && mkdir -p /app/storage/framework/cache \
-    && mkdir -p /app/storage/logs \
-    && chmod -R 777 /app/bootstrap/cache \
-    && chmod -R 777 /app/storage
-
-# Copy composer files first for caching
-COPY composer.json composer.lock* ./
-
-# Create bootstrap/cache again after copy
-RUN mkdir -p /app/bootstrap/cache && chmod -R 777 /app/bootstrap/cache
-
-# Install PHP dependencies (without running scripts)
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
+# Set Composer to allow running as root
+ENV COMPOSER_ALLOW_SUPERUSER=1
 
 # Copy application files
 COPY . .
 
-# Create directories again after full copy
+# Create required directories with proper permissions
 RUN mkdir -p /app/bootstrap/cache \
-    && mkdir -p /app/storage/framework/sessions \
-    && mkdir -p /app/storage/framework/views \
-    && mkdir -p /app/storage/framework/cache \
-    && mkdir -p /app/storage/logs
+    /app/storage/framework/sessions \
+    /app/storage/framework/views \
+    /app/storage/framework/cache \
+    /app/storage/logs \
+    && chmod -R 777 /app/bootstrap/cache /app/storage
 
-# Set permissions
-RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache
-RUN chmod -R 775 /app/storage /app/bootstrap/cache
-
-# Run composer scripts now that directories exist
-RUN composer dump-autoload --optimize
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
 # Install Node dependencies and build assets
 RUN npm install && npm run build
 
-# Generate package manifest manually
-RUN php artisan package:discover --ansi || true
-
-# Optimize Laravel (skip config cache - will be done at runtime)
-RUN php artisan view:clear || true
-RUN php artisan route:clear || true
+# Set permissions
+RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
+    && chmod -R 775 /app/storage /app/bootstrap/cache
 
 # Expose port
 EXPOSE 8080
