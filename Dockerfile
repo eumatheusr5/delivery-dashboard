@@ -1,5 +1,5 @@
-# Multi-stage build for Laravel with FrankenPHP
-FROM dunglas/frankenphp:latest-php8.3-alpine
+# Build stage
+FROM dunglas/frankenphp:latest-php8.3-alpine AS builder
 
 WORKDIR /app
 
@@ -33,37 +33,61 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 # Set Composer to allow running as root
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
+# Copy composer files
+COPY composer.json composer.lock ./
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist --no-scripts
+
+# Copy package files
+COPY package.json package-lock.json* ./
+
+# Install Node dependencies
+RUN npm install --legacy-peer-deps
+
 # Copy application files
 COPY . .
 
-# Copy start script and make executable
-COPY start.sh /usr/local/bin/start.sh
-RUN chmod +x /usr/local/bin/start.sh
+# Build frontend
+RUN npm run build
 
-# Create required directories with proper permissions
-RUN mkdir -p /app/bootstrap/cache \
-    /app/storage/framework/sessions \
-    /app/storage/framework/views \
-    /app/storage/framework/cache \
+# Run Laravel optimization
+RUN composer dump-autoload --optimize
+
+# Production stage
+FROM dunglas/frankenphp:latest-php8.3-alpine
+
+WORKDIR /app
+
+# Install runtime dependencies only
+RUN apk add --no-cache \
+    curl \
+    postgresql-client \
+    && install-php-extensions \
+    pdo_pgsql \
+    pgsql \
+    opcache \
+    mbstring \
+    exif \
+    pcntl \
+    bcmath \
+    gd
+
+# Copy application from builder
+COPY --from=builder --chown=www-data:www-data /app /app
+
+# Create required directories
+RUN mkdir -p /app/storage/framework/{sessions,views,cache} \
     /app/storage/logs \
-    && chmod -R 777 /app/bootstrap/cache /app/storage
-
-# Install PHP dependencies
-RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
-
-# Install Node dependencies and build assets
-RUN npm install --legacy-peer-deps && npm run build
-
-# Set permissions
-RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
+    /app/bootstrap/cache \
     && chmod -R 775 /app/storage /app/bootstrap/cache
 
 # Expose port
 EXPOSE 8080
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
-    CMD curl -f http://localhost:8080/ || exit 1
+# Set environment
+ENV FRANKENPHP_CONFIG="worker ./public/index.php"
+ENV SERVER_NAME=":8080"
 
-# Start FrankenPHP with Octane
-CMD ["/bin/sh", "/usr/local/bin/start.sh"]
+# Start FrankenPHP directly
+CMD ["sh", "-c", "php artisan migrate --force && frankenphp run --config /etc/caddy/Caddyfile"]
