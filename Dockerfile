@@ -48,7 +48,7 @@ RUN mkdir -p /app/bootstrap/cache \
 RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist
 
 # Install Node dependencies and build assets
-RUN npm install && npm run build
+RUN npm install --legacy-peer-deps && npm run build
 
 # Set permissions
 RUN chown -R www-data:www-data /app/storage /app/bootstrap/cache \
